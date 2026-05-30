@@ -2,29 +2,37 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const cloudinary = require('cloudinary').v2;
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ✅ 使用 /tmp 目錄（Render 允許寫入）
-const uploadDir = '/tmp/uploads';
-const logDir = '/tmp/logs';
+// ========== Cloudinary 設定 ==========
+// 請將這三個值換成你從 Cloudinary Dashboard 取得的資訊
+cloudinary.config({
+    cloud_name: '你的Cloud名稱',      // 例如: 'dxm8nzxtr'
+    api_key: '你的API Key',           // 例如: '123456789012345'
+    api_secret: '你的API Secret'      // 例如: 'abc123def456ghi789'
+});
 
-// 建立目錄（使用 recursive 選項避免錯誤）
-try {
-    if (!fs.existsSync(uploadDir)) {
-        fs.mkdirSync(uploadDir, { recursive: true });
-        console.log('✅ 建立 uploads 目錄:', uploadDir);
-    }
-    if (!fs.existsSync(logDir)) {
-        fs.mkdirSync(logDir, { recursive: true });
-        console.log('✅ 建立 logs 目錄:', logDir);
-    }
-} catch (err) {
-    console.log('⚠️ 目錄可能已存在:', err.message);
-}
+// ========== 設定上傳（使用記憶體儲存，直接上傳到 Cloudinary）==========
+const upload = multer({
+    storage: multer.memoryStorage(),  // 改用記憶體儲存
+    limits: { fileSize: 10 * 1024 * 1024 }
+});
 
-// 日誌功能
+// 中間件
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(express.static('public'));
+
+// 儲存照片資料的陣列（只存 Cloudinary URL）
+let photos = [];
+
+// ========== 日誌功能（記錄電話號碼）==========
+const logDir = './logs';
+if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
+
 const getLogFilePath = () => {
     const today = new Date().toISOString().slice(0, 10);
     return path.join(logDir, `phone-${today}.log`);
@@ -34,75 +42,20 @@ function logPhoneNumber(phone, ip, userAgent) {
     const logFile = getLogFilePath();
     const timestamp = new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' });
     const logEntry = `[${timestamp}] 電話: ${phone} | IP: ${ip} | 裝置: ${userAgent}\n`;
-    try {
-        fs.appendFileSync(logFile, logEntry);
-        console.log('📝 已記錄電話:', phone);
-    } catch (err) {
-        console.error('寫入日誌失敗:', err);
-    }
-}
-
-// 照片儲存設定
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, uploadDir);
-    },
-    filename: (req, file, cb) => {
-        const uniqueName = Date.now() + '-' + Math.round(Math.random() * 10000) + path.extname(file.originalname);
-        cb(null, uniqueName);
-    }
-});
-
-const upload = multer({
-    storage: storage,
-    limits: { fileSize: 10 * 1024 * 1024 }
-});
-
-// 中間件
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(express.static('public'));
-app.use('/uploads', express.static(uploadDir));
-
-// 儲存照片的陣列
-let photos = [];
-
-// 載入已存在的照片
-try {
-    if (fs.existsSync(uploadDir)) {
-        const files = fs.readdirSync(uploadDir);
-        for (const file of files) {
-            const ext = path.extname(file).toLowerCase();
-            if (['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(ext)) {
-                photos.push({
-                    id: Date.now() + Math.random() * files.indexOf(file),
-                    filename: file,
-                    title: file.replace(/\.[^/.]+$/, '').substring(0, 20),
-                    desc: '現有照片',
-                    url: `/uploads/${file}`,
-                    uploadDate: new Date()
-                });
-            }
-        }
-        console.log(`📸 載入 ${photos.length} 張現有照片`);
-    }
-} catch (err) {
-    console.log('載入照片時發生錯誤:', err.message);
+    fs.appendFileSync(logFile, logEntry);
+    console.log('📝 已記錄電話:', phone);
 }
 
 // ========== 測試路由 ==========
 app.get('/api/test', (req, res) => {
-    res.json({ success: true, message: 'Render 伺服器正常運作！', time: new Date().toLocaleString() });
+    res.json({ success: true, message: 'Render + Cloudinary 正常運作！' });
 });
 
-// ========== API 路由 ==========
-
+// ========== 電話記錄路由 ==========
 app.post('/api/log-phone', (req, res) => {
     const { phone } = req.body;
     const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '未知';
     const userAgent = req.headers['user-agent'] || '未知';
-    
-    console.log('📞 收到電話:', phone);
     
     if (!phone) {
         return res.status(400).json({ success: false, error: '請輸入手機號碼' });
@@ -115,12 +68,16 @@ app.post('/api/log-phone', (req, res) => {
     res.json({ success: true, message: '已記錄' });
 });
 
+// ========== 照片 API（使用 Cloudinary）==========
+
+// 獲取所有照片
 app.get('/api/photos', (req, res) => {
     console.log('📸 返回照片數量:', photos.length);
     res.json({ success: true, photos });
 });
 
-app.post('/api/upload', upload.array('photos', 30), (req, res) => {
+// 上傳照片到 Cloudinary
+app.post('/api/upload', upload.array('photos', 30), async (req, res) => {
     const files = req.files;
     console.log('📤 上傳請求, 檔案數量:', files?.length);
     
@@ -129,62 +86,87 @@ app.post('/api/upload', upload.array('photos', 30), (req, res) => {
     }
 
     const newPhotos = [];
+    
     for (const file of files) {
-        const photo = {
-            id: Date.now() + Math.random(),
-            filename: file.filename,
-            originalName: file.originalname,
-            title: file.originalname.replace(/\.[^/.]+$/, '').substring(0, 20),
-            desc: `上傳於 ${new Date().toLocaleString()}`,
-            url: `/uploads/${file.filename}`,
-            uploadDate: new Date()
-        };
-        newPhotos.push(photo);
-        photos.unshift(photo);
-        console.log('✅ 儲存照片:', file.filename);
+        try {
+            // 將檔案轉換為 base64
+            const base64 = file.buffer.toString('base64');
+            const dataUri = `data:${file.mimetype};base64,${base64}`;
+            
+            // 上傳到 Cloudinary
+            const result = await cloudinary.uploader.upload(dataUri, {
+                folder: 'photo_album',           // 儲存資料夾
+                transformation: [
+                    { width: 800, height: 800, crop: 'limit' }  // 自動縮放
+                ]
+            });
+            
+            console.log('✅ Cloudinary 上傳成功:', result.secure_url);
+            
+            // 儲存照片資訊（只存 Cloudinary URL）
+            const photo = {
+                id: Date.now() + Math.random(),
+                public_id: result.public_id,
+                title: file.originalname.replace(/\.[^/.]+$/, '').substring(0, 20),
+                desc: `上傳於 ${new Date().toLocaleString()}`,
+                url: result.secure_url,           // Cloudinary 的 HTTPS URL
+                uploadDate: new Date()
+            };
+            newPhotos.push(photo);
+            photos.unshift(photo);
+            
+        } catch (err) {
+            console.error('Cloudinary 上傳失敗:', err);
+        }
+    }
+    
+    if (newPhotos.length === 0) {
+        return res.status(500).json({ success: false, error: '上傳失敗' });
     }
     
     res.json({ success: true, photos: newPhotos });
 });
 
-app.delete('/api/photos/:id', (req, res) => {
+// 刪除單張照片（同時從 Cloudinary 刪除）
+app.delete('/api/photos/:id', async (req, res) => {
     const id = parseFloat(req.params.id);
     const photoIndex = photos.findIndex(p => p.id === id);
+    
     if (photoIndex === -1) {
         return res.status(404).json({ success: false, error: '照片不存在' });
     }
     
-    // 刪除實體檔案
     const photo = photos[photoIndex];
-    const filePath = path.join(uploadDir, photo.filename);
+    
+    // 從 Cloudinary 刪除
     try {
-        if (fs.existsSync(filePath)) {
-            fs.unlinkSync(filePath);
+        if (photo.public_id) {
+            await cloudinary.uploader.destroy(photo.public_id);
+            console.log('🗑️ 從 Cloudinary 刪除:', photo.public_id);
         }
     } catch (err) {
-        console.log('刪除檔案失敗:', err.message);
+        console.error('Cloudinary 刪除失敗:', err);
     }
     
     photos.splice(photoIndex, 1);
-    console.log('🗑️ 刪除照片:', photo.filename);
     res.json({ success: true });
 });
 
-app.delete('/api/photos', (req, res) => {
+// 清空所有照片
+app.delete('/api/photos', async (req, res) => {
     const { password } = req.body;
     if (password !== '1234') {
         return res.status(401).json({ success: false, error: '密碼錯誤' });
     }
     
-    // 刪除所有實體檔案
+    // 從 Cloudinary 刪除所有照片
     for (const photo of photos) {
-        const filePath = path.join(uploadDir, photo.filename);
-        try {
-            if (fs.existsSync(filePath)) {
-                fs.unlinkSync(filePath);
+        if (photo.public_id) {
+            try {
+                await cloudinary.uploader.destroy(photo.public_id);
+            } catch (err) {
+                console.error('刪除失敗:', photo.public_id);
             }
-        } catch (err) {
-            console.log('刪除檔案失敗:', err.message);
         }
     }
     
@@ -195,9 +177,7 @@ app.delete('/api/photos', (req, res) => {
 
 // 啟動伺服器
 app.listen(PORT, '0.0.0.0', () => {
-    console.log(`✅ Render 伺服器啟動成功！`);
+    console.log(`✅ Render + Cloudinary 伺服器啟動成功！`);
     console.log(`🌐 端口: ${PORT}`);
-    console.log(`📁 照片儲存: ${uploadDir}`);
-    console.log(`📝 日誌儲存: ${logDir}`);
-    console.log(`🔒 清空密碼: 1234`);
+    console.log(`☁️ 照片將儲存在 Cloudinary 雲端`);
 });
