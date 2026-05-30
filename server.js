@@ -6,9 +6,13 @@ const fs = require('fs');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// 建立儲存照片的資料夾
-const uploadDir = './uploads';
-if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir);
+// 在雲端環境中使用 /tmp 目錄來存放檔案，這是允許寫入的。
+const uploadDir = '/tmp/uploads';
+const logDir = '/tmp/logs';
+
+// 確保資料夾存在
+if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
 
 // 建立日誌資料夾
 const logDir = './logs';
@@ -161,13 +165,12 @@ app.delete('/api/photos', (req, res) => {
 
 // 只在本地開發時監聽埠號
 if (process.env.NODE_ENV !== 'production') {
-    app.listen(PORT, () => {
-        console.log(`✅ 伺服器啟動成功！`);
-        console.log(`📁 照片會儲存在: ${path.resolve(uploadDir)}`);
-        console.log(`📝 電話日誌會儲存在: ${path.resolve(logDir)}`);
-        console.log(`🌐 請在瀏覽器打開: http://localhost:${PORT}`);
-    });
-}
+    // 修改前可能是 app.listen(PORT, ...)
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(`✅ 伺服器啟動成功！`);
+    console.log(`📁 照片會儲存在: ${uploadDir}`);
+    // ... 其他 console.log
+});
 
 // 匯出 app 給 Vercel 使用
 module.exports = app;
