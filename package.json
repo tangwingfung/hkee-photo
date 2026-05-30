@@ -1,8 +1,6 @@
 {
   "name": "hkee-photo",
   "version": "1.0.0",
-  "description": "我的相冊 - 使用 Cloudinary",
-  "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
