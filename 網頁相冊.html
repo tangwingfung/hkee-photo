@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>加密相冊 | 永久保存回憶</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(145deg, #f5f7fc 0%, #e9eef4 100%);
+            font-family: system-ui, 'Segoe UI', 'Helvetica Neue', 'Noto Sans', sans-serif;
+            padding: 2rem 1.5rem 3rem;
+            color: #1a2c3e;
+        }
+
+        .album-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .album-header h1 {
+            font-size: 2.5rem;
+            font-weight: 600;
+            letter-spacing: -0.5px;
+            background: linear-gradient(135deg, #2c3e66, #1e2f47);
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .album-header p {
+            font-size: 1rem;
+            color: #4a627a;
+            margin-top: 0.5rem;
+        }
+
+        /* 上傳工具欄 - 使用 flex 均勻對齊三個區塊 */
+        .upload-area {
+            max-width: 1000px;
+            margin: 0 auto 2rem auto;
+            background: white;
+            border-radius: 60px;
+            padding: 0.8rem 1.8rem;
+            display: flex;
+            flex-wrap: nowrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+            border: 1px solid rgba(0,0,0,0.05);
+        }
+
+        /* 左側區塊：上傳按鈕 + 輔助說明 */
+        .upload-section {
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            flex: 1;
+            justify-content: flex-start;
+        }
+
+        .upload-label {
+            background: #1e2f47;
+            color: white;
+            padding: 0.7rem 1.6rem;
+            border-radius: 50px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.95rem;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+            white-space: nowrap;
+        }
+
+        .upload-label:hover {
+            background: #2c4868;
+            transform: scale(1.02);
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .upload-info {
+            color: #2c6280;
+            font-size: 0.8rem;
+            background: #e9f0f5;
+            padding: 0.3rem 1rem;
+            border-radius: 50px;
+            white-space: nowrap;
+        }
+
+        /* 中間區塊：清空按鈕 (置中，強化警示風格) */
+        .action-section {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex: 1;
+        }
+
+        .clear-btn {
+            background: linear-gradient(135deg, #fff1f0 0%, #ffe0de 100%);
+            border: 1px solid #f5c2c0;
+            padding: 0.7rem 2rem;
+            border-radius: 60px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: #b34133;
+            transition: all 0.25s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            white-space: nowrap;
+            box-shadow: 0 2px 8px rgba(192, 57, 43, 0.15);
+            letter-spacing: 0.3px;
+        }
+
+        .clear-btn:hover {
+            background: linear-gradient(135deg, #ffe0dd 0%, #ffcdc9 100%);
+            border-color: #e05a4f;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 18px rgba(192, 57, 43, 0.25);
+            color: #8b2c20;
+        }
+
+        .clear-btn:active {
+            transform: translateY(1px);
+        }
+
+        /* 右側區塊：計數徽章 */
+        .count-section {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            flex: 1;
+        }
+
+        .count-badge {
+            background: #cbdcec;
+            border-radius: 50px;
+            padding: 0.4rem 1.2rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #1f3a4b;
+            white-space: nowrap;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .count-badge::before {
+            content: "📸";
+            font-size: 1rem;
+        }
+
+        .gallery {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1.8rem;
+            justify-items: center;
+            align-items: start;
+        }
+
+        .photo-card {
+            background: rgba(255, 255, 255, 0.85);
+            border-radius: 28px;
+            overflow: hidden;
+            box-shadow: 0 20px 30px -12px rgba(0, 0, 0, 0.15), 0 1px 2px rgba(0,0,0,0.05);
+            transition: all 0.3s cubic-bezier(0.2, 0, 0, 1);
+            width: 100%;
+            cursor: pointer;
+            border: 1px solid rgba(255,255,255,0.6);
+        }
+
+        .photo-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 28px 36px -16px rgba(0, 0, 0, 0.25);
+            background: white;
+        }
+
+        .image-wrapper {
+            width: 100%;
+            aspect-ratio: 1 / 1;
+            overflow: hidden;
+            background-color: #e2e8f0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .photo-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.4s ease;
+            display: block;
+        }
+
+        .photo-card:hover .photo-img {
+            transform: scale(1.03);
+        }
+
+        .photo-caption {
+            padding: 1rem 1rem 1.2rem;
+            background: white;
+            border-top: 1px solid #eff3f8;
+        }
+
+        .photo-title {
+            font-weight: 600;
+            font-size: 1rem;
+            color: #1f3a4b;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .photo-desc {
+            font-size: 0.8rem;
+            color: #5e727f;
+            margin-top: 0.4rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .delete-photo {
+            background: none;
+            border: none;
+            font-size: 1.2rem;
+            cursor: pointer;
+            color: #9aaebf;
+            transition: 0.2s;
+            padding: 0 4px;
+            border-radius: 20px;
+        }
+
+        .delete-photo:hover {
+            color: #e05a5a;
+            background: #fce4e4;
+        }
+
+        .lightbox {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(18, 25, 35, 0.92);
+            backdrop-filter: blur(12px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            visibility: hidden;
+            opacity: 0;
+            transition: visibility 0.2s, opacity 0.25s ease;
+            cursor: pointer;
+        }
+
+        .lightbox.active {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        .lightbox-content {
+            max-width: 90vw;
+            max-height: 85vh;
+            background: transparent;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            animation: fadeInScale 0.2s ease-out;
+        }
+
+        @keyframes fadeInScale {
+            from {
+                opacity: 0;
+                transform: scale(0.96);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        .lightbox-img {
+            max-width: 90vw;
+            max-height: 75vh;
+            object-fit: contain;
+            border-radius: 24px;
+            box-shadow: 0 25px 40px rgba(0, 0, 0, 0.4);
+            background: #fef9e8;
+            border: 2px solid rgba(255,255,240,0.5);
+        }
+
+        .lightbox-caption {
+            margin-top: 1rem;
+            background: rgba(0, 0, 0, 0.65);
+            backdrop-filter: blur(8px);
+            padding: 0.6rem 1.2rem;
+            border-radius: 60px;
+            color: white;
+            font-size: 1rem;
+            max-width: 80%;
+            text-align: center;
+            font-weight: 500;
+        }
+
+        .close-lightbox {
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            font-size: 2.6rem;
+            color: white;
+            background: rgba(0,0,0,0.5);
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: 0.2s;
+            font-weight: 300;
+            backdrop-filter: blur(4px);
+            border: none;
+        }
+
+        .close-lightbox:hover {
+            background: #c0392b;
+        }
+
+        .footer-note {
+            text-align: center;
+            margin-top: 3rem;
+            font-size: 0.8rem;
+            color: #6c86a0;
+            border-top: 1px solid #cbdbe0;
+            padding-top: 1.5rem;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .empty-message {
+            text-align: center;
+            padding: 4rem 2rem;
+            background: #f8fafd;
+            border-radius: 48px;
+            color: #8aa0b5;
+            font-size: 1rem;
+            grid-column: 1 / -1;
+        }
+
+        .password-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(5px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1100;
+            visibility: hidden;
+            opacity: 0;
+            transition: 0.2s;
+        }
+
+        .password-modal.active {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        .password-modal-card {
+            background: white;
+            border-radius: 48px;
+            max-width: 340px;
+            width: 85%;
+            padding: 1.8rem 1.5rem 2rem;
+            text-align: center;
+            box-shadow: 0 30px 40px rgba(0,0,0,0.3);
+            animation: fadeInScale 0.2s ease;
+        }
+
+        .password-modal-card h3 {
+            font-size: 1.6rem;
+            margin-bottom: 0.5rem;
+            color: #1f3a4b;
+        }
+
+        .password-modal-card p {
+            color: #5e727f;
+            margin-bottom: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .password-input {
+            width: 100%;
+            padding: 12px 16px;
+            font-size: 1rem;
+            border: 1px solid #cbdcec;
+            border-radius: 60px;
+            margin-bottom: 1.2rem;
+            outline: none;
+            text-align: center;
+            letter-spacing: 2px;
+            font-family: monospace;
+        }
+
+        .password-input:focus {
+            border-color: #2c6280;
+            box-shadow: 0 0 0 2px rgba(44,98,128,0.2);
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+        }
+
+        .modal-btn {
+            border: none;
+            padding: 8px 20px;
+            border-radius: 40px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .modal-btn.confirm {
+            background: #c0392b;
+            color: white;
+        }
+
+        .modal-btn.confirm:hover {
+            background: #a93226;
+        }
+
+        .modal-btn.cancel {
+            background: #eef2f8;
+            color: #4a627a;
+        }
+
+        .modal-btn.cancel:hover {
+            background: #e2e8f0;
+        }
+
+        .error-msg {
+            color: #e05a5a;
+            font-size: 0.8rem;
+            margin-top: -0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        /* 手機板調整 */
+        @media (max-width: 780px) {
+            .upload-area {
+                flex-wrap: wrap;
+                border-radius: 36px;
+                padding: 1rem;
+                gap: 0.8rem;
+            }
+            .upload-section, .action-section, .count-section {
+                flex: auto;
+                justify-content: center;
+                width: 100%;
+            }
+            .upload-section {
+                order: 1;
+            }
+            .action-section {
+                order: 2;
+            }
+            .count-section {
+                order: 3;
+            }
+            .upload-info {
+                white-space: normal;
+                font-size: 0.7rem;
+            }
+            .clear-btn, .upload-label {
+                white-space: nowrap;
+            }
+        }
+
+        @media (max-width: 640px) {
+            body {
+                padding: 1rem 1rem 2rem;
+            }
+            .gallery {
+                gap: 1.2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="album-header">
+    <h1>💾 雲端相冊 · 永久保存回憶</h1>
+    <p>上傳照片自動儲存 | 關閉網頁也不遺失 | 刪除單張無需密碼</p>
+</div>
+
+<!-- 功能欄：三個區塊完美對齊（左、中、右），中間清空按鈕使用全新警示樣式 -->
+<div class="upload-area">
+    <!-- 左側：上傳按鈕區塊 -->
+    <div class="upload-section">
+        <label class="upload-label" for="fileInput">
+            📤 上傳照片
+        </label>
+        <input type="file" id="fileInput" accept="image/jpeg, image/png, image/jpg, image/webp, image/gif" multiple>
+        <div class="upload-info">✨ 支援 JPG / PNG / WEBP / GIF</div>
+    </div>
+
+    <!-- 中間：清空全部按鈕區塊（全新強烈警示風格） -->
+    <div class="action-section">
+        <button class="clear-btn" id="clearAllBtn">
+            ⚠️ 清空全部照片
+        </button>
+    </div>
+
+    <!-- 右側：照片計數區塊 -->
+    <div class="count-section">
+        <div class="count-badge" id="photoCountBadge">0 張照片</div>
+    </div>
+</div>
+
+<div class="gallery" id="galleryContainer">
+    <div class="empty-message">🌸 還沒有照片～ 點擊上方「上傳照片」開始記錄美好時光</div>
+</div>
+
+<div class="footer-note">
+    💡 所有照片都會自動儲存在這個瀏覽器中，關閉網頁、重新整理都不會遺失。<br>
+    🔒 清空全部需要密碼（預設 1234），刪除單張不需密碼。
+</div>
+
+<div id="lightbox" class="lightbox">
+    <div class="close-lightbox" id="closeLightboxBtn">✕</div>
+    <div class="lightbox-content">
+        <img class="lightbox-img" id="lightboxImg" alt="放大相片" src="">
+        <div class="lightbox-caption" id="lightboxCaption"></div>
+    </div>
+</div>
+
+<div id="passwordModal" class="password-modal">
+    <div class="password-modal-card">
+        <h3>🔒 授權清空</h3>
+        <p>此操作將刪除「全部照片」，請輸入管理密碼</p>
+        <input type="password" id="passwordInput" class="password-input" placeholder="請輸入密碼" autocomplete="off">
+        <div id="modalError" class="error-msg"></div>
+        <div class="modal-buttons">
+            <button class="modal-btn cancel" id="modalCancelBtn">取消</button>
+            <button class="modal-btn confirm" id="modalConfirmBtn">確認清空</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ---------- 加密與持久化儲存 ----------
+    const ADMIN_PASSWORD = "1234";
+    
+    let photoItems = [];
+    let nextId = 1;
+    
+    // IndexedDB 設定
+    const DB_NAME = 'PhotoAlbumDB';
+    const DB_VERSION = 1;
+    const STORE_NAME = 'photos';
+    let db = null;
+    
+    // DOM
+    const galleryContainer = document.getElementById('galleryContainer');
+    const fileInput = document.getElementById('fileInput');
+    const clearAllBtn = document.getElementById('clearAllBtn');
+    const photoCountBadge = document.getElementById('photoCountBadge');
+    const lightbox = document.getElementById('lightbox');
+    const lightboxImg = document.getElementById('lightboxImg');
+    const lightboxCaption = document.getElementById('lightboxCaption');
+    const closeLightboxBtn = document.getElementById('closeLightboxBtn');
+    const passwordModal = document.getElementById('passwordModal');
+    const passwordInput = document.getElementById('passwordInput');
+    const modalError = document.getElementById('modalError');
+    const modalConfirmBtn = document.getElementById('modalConfirmBtn');
+    const modalCancelBtn = document.getElementById('modalCancelBtn');
+
+    // IndexedDB 初始化
+    function initDB() {
+        return new Promise((resolve, reject) => {
+            const request = indexedDB.open(DB_NAME, DB_VERSION);
+            request.onerror = (event) => reject(event);
+            request.onsuccess = (event) => {
+                db = event.target.result;
+                resolve(db);
+            };
+            request.onupgradeneeded = (event) => {
+                const dbRef = event.target.result;
+                if (!dbRef.objectStoreNames.contains(STORE_NAME)) {
+                    dbRef.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
+                }
+            };
+        });
+    }
+
+    async function savePhotoToDB(photoData) {
+        if (!db) return;
+        return new Promise((resolve, reject) => {
+            const transaction = db.transaction([STORE_NAME], 'readwrite');
+            const store = transaction.objectStore(STORE_NAME);
+            const record = {
+                id: photoData.id,
+                title: photoData.title,
+                desc: photoData.desc,
+                timestamp: photoData.timestamp,
+                blob: photoData.file,
+                fileName: photoData.file?.name || 'photo'
+            };
+            const request = store.put(record);
+            request.onsuccess = () => resolve();
+            request.onerror = (e) => reject(e);
+        });
+    }
+
+    async function deletePhotoFromDB(photoId) {
+        if (!db) return;
+        return new Promise((resolve, reject) => {
+            const transaction = db.transaction([STORE_NAME], 'readwrite');
+            const store = transaction.objectStore(STORE_NAME);
+            const request = store.delete(photoId);
+            request.onsuccess = () => resolve();
+            request.onerror = (e) => reject(e);
+        });
+    }
+
+    async function clearAllPhotosFromDB() {
+        if (!db) return;
+        return new Promise((resolve, reject) => {
+            const transaction = db.transaction([STORE_NAME], 'readwrite');
+            const store = transaction.objectStore(STORE_NAME);
+            const request = store.clear();
+            request.onsuccess = () => resolve();
+            request.onerror = (e) => reject(e);
+        });
+    }
+
+    async function loadAllPhotosFromDB() {
+        if (!db) return [];
+        return new Promise((resolve, reject) => {
+            const transaction = db.transaction([STORE_NAME], 'readonly');
+            const store = transaction.objectStore(STORE_NAME);
+            const request = store.getAll();
+            request.onsuccess = async (event) => {
+                const records = event.target.result;
+                const items = [];
+                for (const record of records) {
+                    const blobUrl = URL.createObjectURL(record.blob);
+                    items.push({
+                        id: record.id,
+                        url: blobUrl,
+                        title: record.title,
+                        desc: record.desc,
+                        timestamp: record.timestamp,
+                        file: record.blob,
+                    });
+                    if (record.id >= nextId) nextId = record.id + 1;
+                }
+                resolve(items);
+            };
+            request.onerror = (e) => reject(e);
+        });
+    }
+
+    async function addAndStorePhotos(filesArray) {
+        if (!filesArray.length) return;
+        const newItems = [];
+        for (let i = 0; i < filesArray.length; i++) {
+            const file = filesArray[i];
+            if (!file.type.startsWith('image/')) continue;
+            const blobUrl = URL.createObjectURL(file);
+            const baseName = file.name.replace(/\.[^/.]+$/, "");
+            const displayName = baseName.length > 20 ? baseName.slice(0, 18) + ".." : (baseName || `回憶 ${Date.now()}`);
+            const date = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+            const desc = `上傳於 ${date} · ${file.type.split('/')[1]?.toUpperCase() || '影像'}`;
+            const newId = nextId++;
+            const photoObj = {
+                id: newId,
+                url: blobUrl,
+                title: displayName,
+                desc: desc,
+                timestamp: Date.now(),
+                file: file,
+            };
+            newItems.push(photoObj);
+            await savePhotoToDB({
+                id: newId,
+                title: displayName,
+                desc: desc,
+                timestamp: Date.now(),
+                file: file,
+                fileName: file.name
+            });
+        }
+        if (newItems.length) {
+            photoItems.push(...newItems);
+            renderGallery();
+        }
+    }
+
+    async function deletePhotoById(id) {
+        const index = photoItems.findIndex(item => item.id === id);
+        if (index !== -1) {
+            const removed = photoItems[index];
+            if (removed.url && removed.url.startsWith('blob:')) URL.revokeObjectURL(removed.url);
+            photoItems.splice(index, 1);
+            await deletePhotoFromDB(id);
+            renderGallery();
+        }
+    }
+
+    async function performClearAllPhotos() {
+        if (photoItems.length === 0) {
+            alert('目前沒有照片可以清空');
+            return;
+        }
+        photoItems.forEach(item => { if (item.url) URL.revokeObjectURL(item.url); });
+        photoItems = [];
+        await clearAllPhotosFromDB();
+        renderGallery();
+    }
+
+    function renderGallery() {
+        if (photoItems.length === 0) {
+            galleryContainer.innerHTML = `<div class="empty-message">📷 目前沒有任何照片，點擊上方按鈕上傳你的第一張回憶～</div>`;
+            updateCountBadge();
+            return;
+        }
+
+        galleryContainer.innerHTML = '';
+        photoItems.forEach(item => {
+            const card = document.createElement('div');
+            card.className = 'photo-card';
+            const wrapper = document.createElement('div');
+            wrapper.className = 'image-wrapper';
+            const img = document.createElement('img');
+            img.src = item.url;
+            img.alt = item.title;
+            img.className = 'photo-img';
+            img.loading = 'lazy';
+            wrapper.appendChild(img);
+
+            const captionDiv = document.createElement('div');
+            captionDiv.className = 'photo-caption';
+            const titleDiv = document.createElement('div');
+            titleDiv.className = 'photo-title';
+            titleDiv.innerHTML = `<span>📷 ${item.title}</span>
+                                  <button class="delete-photo" data-id="${item.id}" title="刪除這張照片">✕</button>`;
+            const descDiv = document.createElement('div');
+            descDiv.className = 'photo-desc';
+            descDiv.innerHTML = `<span>${item.desc}</span><span style="font-size:0.7rem;">🔍 點擊放大</span>`;
+            captionDiv.appendChild(titleDiv);
+            captionDiv.appendChild(descDiv);
+            card.appendChild(wrapper);
+            card.appendChild(captionDiv);
+
+            card.addEventListener('click', (e) => {
+                if (e.target.classList.contains('delete-photo') || e.target.closest('.delete-photo')) return;
+                openLightbox(item.url, `${item.title} · ${item.desc}`);
+            });
+            galleryContainer.appendChild(card);
+        });
+
+        document.querySelectorAll('.delete-photo').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const id = parseInt(btn.dataset.id);
+                await deletePhotoById(id);
+            });
+        });
+        updateCountBadge();
+    }
+
+    function updateCountBadge() {
+        const count = photoItems.length;
+        photoCountBadge.innerHTML = `${count} 張照片`;
+    }
+
+    function showPasswordModal() {
+        if (photoItems.length === 0) {
+            alert('目前沒有照片可以清空');
+            return;
+        }
+        passwordInput.value = '';
+        modalError.innerText = '';
+        passwordModal.classList.add('active');
+        setTimeout(() => passwordInput.focus(), 50);
+    }
+
+    function hidePasswordModal() {
+        passwordModal.classList.remove('active');
+        modalError.innerText = '';
+    }
+
+    async function verifyPasswordAndClear() {
+        const enteredPassword = passwordInput.value;
+        if (enteredPassword === ADMIN_PASSWORD) {
+            await performClearAllPhotos();
+            hidePasswordModal();
+        } else {
+            modalError.innerText = '❌ 密碼錯誤，清空操作已取消';
+            passwordInput.value = '';
+            passwordInput.focus();
+        }
+    }
+
+    async function handleFiles(files) {
+        if (!files || files.length === 0) return;
+        const imageFiles = Array.from(files).filter(f => f.type.startsWith('image/')).slice(0, 30);
+        if (imageFiles.length === 0) {
+            alert('請選擇圖片檔案 (jpg/png/webp/gif)');
+            return;
+        }
+        await addAndStorePhotos(imageFiles);
+        fileInput.value = '';
+    }
+
+    function openLightbox(imgSrc, captionText) {
+        lightboxImg.src = imgSrc;
+        lightboxCaption.textContent = captionText;
+        lightbox.classList.add('active');
+        document.body.style.overflow = 'hidden';
+    }
+    function closeLightbox() {
+        lightbox.classList.remove('active');
+        document.body.style.overflow = '';
+    }
+
+    async function init() {
+        await initDB();
+        const loadedPhotos = await loadAllPhotosFromDB();
+        photoItems = loadedPhotos;
+        renderGallery();
+
+        fileInput.addEventListener('change', (e) => { if (e.target.files.length) handleFiles(e.target.files); });
+        clearAllBtn.addEventListener('click', showPasswordModal);
+        modalConfirmBtn.addEventListener('click', verifyPasswordAndClear);
+        modalCancelBtn.addEventListener('click', hidePasswordModal);
+        passwordModal.addEventListener('click', (e) => { if (e.target === passwordModal) hidePasswordModal(); });
+        passwordInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') verifyPasswordAndClear(); });
+        lightbox.addEventListener('click', (e) => { if (e.target === lightbox || e.target === closeLightboxBtn) closeLightbox(); });
+        closeLightboxBtn.addEventListener('click', closeLightbox);
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && lightbox.classList.contains('active')) closeLightbox();
+            if (e.key === 'Escape' && passwordModal.classList.contains('active')) hidePasswordModal();
+        });
+
+        const uploadArea = document.querySelector('.upload-area');
+        if (uploadArea) {
+            uploadArea.addEventListener('dragover', (e) => e.preventDefault());
+            uploadArea.addEventListener('drop', async (e) => {
+                e.preventDefault();
+                const files = e.dataTransfer.files;
+                if (files.length) await handleFiles(Array.from(files));
+            });
+        }
+    }
+
+    init();
+</script>
+</body>
+</html>

@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>相冊 - 輸入電話號碼</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: linear-gradient(145deg, #f5f7fc 0%, #e9eef4 100%);
+            font-family: system-ui, 'Segoe UI', sans-serif;
+            min-height: 100vh;
+        }
+        
+        /* 電話輸入頁面樣式 */
+        .phone-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #1a2c3e, #0f1a24);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            transition: opacity 0.5s ease;
+        }
+        
+        .phone-card {
+            background: white;
+            border-radius: 48px;
+            padding: 2.5rem 2rem;
+            text-align: center;
+            max-width: 400px;
+            width: 85%;
+            box-shadow: 0 30px 50px rgba(0,0,0,0.3);
+            animation: fadeInUp 0.5s ease;
+        }
+        
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .phone-card h1 {
+            font-size: 2rem;
+            color: #1a2c3e;
+            margin-bottom: 0.5rem;
+        }
+        
+        .phone-card p {
+            color: #6c86a0;
+            margin-bottom: 1.8rem;
+            font-size: 0.9rem;
+        }
+        
+        .phone-input {
+            width: 100%;
+            padding: 1rem 1.2rem;
+            font-size: 1rem;
+            border: 2px solid #e2e8f0;
+            border-radius: 60px;
+            margin-bottom: 1.2rem;
+            outline: none;
+            text-align: center;
+            letter-spacing: 1px;
+            transition: all 0.2s;
+        }
+        
+        .phone-input:focus {
+            border-color: #2c6280;
+            box-shadow: 0 0 0 3px rgba(44,98,128,0.2);
+        }
+        
+        .enter-btn {
+            background: #1e2f47;
+            color: white;
+            border: none;
+            padding: 0.9rem 2rem;
+            font-size: 1rem;
+            border-radius: 60px;
+            cursor: pointer;
+            width: 100%;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        
+        .enter-btn:hover {
+            background: #2c4868;
+            transform: translateY(-2px);
+        }
+        
+        .enter-btn:disabled {
+            background: #9aaebf;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .error-msg {
+            color: #e05a5a;
+            font-size: 0.8rem;
+            margin-top: -0.5rem;
+            margin-bottom: 1rem;
+        }
+        
+        .hint {
+            font-size: 0.7rem;
+            color: #8aa0b5;
+            margin-top: 1rem;
+        }
+        
+        /* 主內容 */
+        .main-content {
+            display: none;
+            padding: 2rem 1.5rem;
+        }
+        
+        .main-content.visible {
+            display: block;
+        }
+        
+        /* 相冊樣式 */
+        .album-header { text-align: center; margin-bottom: 2rem; }
+        .album-header h1 { font-size: 2rem; background: linear-gradient(135deg, #2c3e66, #1e2f47); background-clip: text; -webkit-background-clip: text; color: transparent; }
+        .toolbar {
+            max-width: 1000px; margin: 0 auto 2rem; background: white; border-radius: 60px;
+            padding: 1rem 1.5rem; display: flex; flex-wrap: wrap; align-items: center;
+            justify-content: space-between; gap: 1rem;
+        }
+        .upload-btn {
+            background: #1e2f47; color: white; padding: 0.7rem 1.5rem; border-radius: 50px;
+            cursor: pointer; border: none; font-size: 1rem;
+        }
+        .upload-btn:hover { background: #2c4868; }
+        .clear-btn {
+            background: #fff1f0; border: 1px solid #f5c2c0; padding: 0.7rem 1.5rem;
+            border-radius: 50px; cursor: pointer; color: #b34133; font-weight: 600;
+        }
+        .clear-btn:hover { background: #ffe0dd; }
+        .count-badge { background: #cbdcec; border-radius: 50px; padding: 0.5rem 1.2rem; font-weight: 600; }
+        .gallery {
+            max-width: 1400px; margin: 0 auto;
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1.5rem;
+        }
+        .photo-card {
+            background: white; border-radius: 24px; overflow: hidden;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1); cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .photo-card:hover { transform: translateY(-5px); }
+        .photo-card img { width: 100%; aspect-ratio: 1/1; object-fit: cover; }
+        .photo-info { padding: 0.8rem; }
+        .photo-title { font-weight: 600; display: flex; justify-content: space-between; }
+        .delete-icon { color: #999; cursor: pointer; font-size: 1.2rem; }
+        .delete-icon:hover { color: #e05a5a; }
+        .photo-desc { font-size: 0.8rem; color: #666; margin-top: 4px; }
+        .empty-message { text-align: center; padding: 4rem; color: #8aa0b5; grid-column: 1/-1; }
+        .lightbox {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9); display: flex; align-items: center; justify-content: center;
+            z-index: 1000; visibility: hidden; opacity: 0;
+        }
+        .lightbox.active { visibility: visible; opacity: 1; }
+        .lightbox img { max-width: 90vw; max-height: 85vh; }
+        .close-btn {
+            position: absolute; top: 20px; right: 30px; font-size: 2rem;
+            color: white; cursor: pointer; background: rgba(0,0,0,0.5);
+            width: 45px; height: 45px; border-radius: 50%; display: flex;
+            align-items: center; justify-content: center;
+        }
+        .password-modal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center;
+            z-index: 1100; visibility: hidden; opacity: 0;
+        }
+        .password-modal.active { visibility: visible; opacity: 1; }
+        .modal-card { background: white; border-radius: 32px; padding: 2rem; text-align: center; width: 300px; }
+        .modal-card input { width: 100%; padding: 10px; margin: 1rem 0; border: 1px solid #ccc; border-radius: 50px; text-align: center; }
+        .modal-card button { padding: 8px 20px; margin: 0 5px; border-radius: 50px; border: none; cursor: pointer; }
+        .confirm-btn { background: #c0392b; color: white; }
+        .cancel-btn { background: #eef2f8; }
+        .error-msg { color: red; font-size: 0.8rem; }
+        .footer { text-align: center; margin-top: 2rem; color: #6c86a0; font-size: 0.8rem; }
+        @media (max-width: 700px) { .toolbar { flex-direction: column; } }
+    </style>
+</head>
+<body>
+
+<!-- 電話輸入頁面 -->
+<div id="phoneContainer" class="phone-container">
+    <div class="phone-card">
+        <h1>📞 歡迎</h1>
+        <p>請輸入 8 位數字以進入相冊</p>
+        <input type="tel" id="phoneInput" class="phone-input" placeholder="請輸入 8 位數字" maxlength="8">
+        <div id="phoneError" class="error-msg"></div>
+        <button id="enterBtn" class="enter-btn">進入相冊</button>
+        <div class="hint">※ 您的號碼僅會記錄在伺服器日誌中</div>
+    </div>
+</div>
+
+<!-- 主內容（相冊） -->
+<div id="mainContent" class="main-content">
+    <div class="album-header">
+        <h1>📸 線上 相冊</h1>
+        <p>記錄美好生活~</p>
+    </div>
+
+    <div class="toolbar">
+        <input type="file" id="fileInput" multiple accept="image/*" style="display:none">
+        <button class="upload-btn" onclick="document.getElementById('fileInput').click()">📤 上傳照片</button>
+        <button class="clear-btn" id="clearBtn">🗑️ 清空全部照片</button>
+        <div class="count-badge" id="countBadge">📸 0 張照片</div>
+    </div>
+
+    <div class="gallery" id="gallery">
+        <div class="empty-message">🌸 還沒有照片～ 點擊上傳按鈕開始</div>
+    </div>
+
+    <div class="footer">💡 照片儲存在伺服器 | 清空全部需要密碼</div>
+
+    <div id="lightbox" class="lightbox" onclick="closeLightbox()">
+        <div class="close-btn">✕</div>
+        <img id="lightboxImg" src="">
+    </div>
+
+    <div id="passwordModal" class="password-modal">
+        <div class="modal-card">
+            <h3>🔒 授權清空</h3>
+            <p>請輸入管理密碼</p>
+            <input type="password" id="passwordInput" placeholder="密碼">
+            <div id="modalError" class="error-msg"></div>
+            <div>
+                <button class="cancel-btn" id="cancelBtn">取消</button>
+                <button class="confirm-btn" id="confirmClearBtn">確認清空</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let photos = [];
+
+    // 檢查是否已經輸入過電話（儲存在 sessionStorage）
+    if (sessionStorage.getItem('phoneEntered') === 'true') {
+        document.getElementById('phoneContainer').style.display = 'none';
+        document.getElementById('mainContent').classList.add('visible');
+        loadPhotos();
+    }
+
+    // 輸入電話功能（只記錄，不驗證）
+    const enterBtn = document.getElementById('enterBtn');
+    const phoneInput = document.getElementById('phoneInput');
+    const phoneError = document.getElementById('phoneError');
+    const phoneContainer = document.getElementById('phoneContainer');
+    const mainContent = document.getElementById('mainContent');
+
+    enterBtn.addEventListener('click', async () => {
+        const phone = phoneInput.value.trim();
+        
+        // 基本格式檢查（8位數字）
+        if (!phone) {
+            phoneError.innerText = '請輸入 8 位數字';
+            return;
+        }
+        if (!/^\d{8}$/.test(phone)) {
+            phoneError.innerText = '請輸入正確的 8 位數字';
+            return;
+        }
+        
+        enterBtn.disabled = true;
+        enterBtn.textContent = '處理中...';
+        
+        try {
+            // 發送電話號碼到伺服器記錄（不驗證）
+            const res = await fetch('/api/log-phone', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ phone: phone })
+            });
+            const data = await res.json();
+            
+            if (data.success) {
+                // 記錄成功，直接進入相冊
+                sessionStorage.setItem('phoneEntered', 'true');
+                sessionStorage.setItem('userPhone', phone);
+                
+                // 隱藏電話輸入畫面，顯示相冊
+                phoneContainer.style.display = 'none';
+                mainContent.classList.add('visible');
+                
+                // 載入照片
+                loadPhotos();
+            } else {
+                phoneError.innerText = data.error || '發生錯誤，請稍後再試';
+            }
+        } catch (err) {
+            phoneError.innerText = '伺服器連線失敗，請稍後再試';
+            console.error(err);
+        } finally {
+            enterBtn.disabled = false;
+            enterBtn.textContent = '進入相冊';
+        }
+    });
+
+    // 按 Enter 鍵也可以送出
+    phoneInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            enterBtn.click();
+        }
+    });
+
+    // ========== 相冊功能 ==========
+    async function loadPhotos() {
+        try {
+            const res = await fetch('/api/photos');
+            const data = await res.json();
+            if (data.success) {
+                photos = data.photos;
+                renderGallery();
+            }
+        } catch (err) {
+            console.error('載入照片失敗:', err);
+        }
+    }
+
+    function renderGallery() {
+        const gallery = document.getElementById('gallery');
+        const countBadge = document.getElementById('countBadge');
+        
+        if (photos.length === 0) {
+            gallery.innerHTML = '<div class="empty-message">📷 還沒有照片～ 點擊上傳按鈕開始</div>';
+            countBadge.innerHTML = '📸 0 張照片';
+            return;
+        }
+        
+        countBadge.innerHTML = `📸 ${photos.length} 張照片`;
+        gallery.innerHTML = '';
+        
+        photos.forEach(photo => {
+            const card = document.createElement('div');
+            card.className = 'photo-card';
+            card.innerHTML = `
+                <img src="${photo.url}" alt="${photo.title}" loading="lazy">
+                <div class="photo-info">
+                    <div class="photo-title">
+                        <span>📷 ${photo.title}</span>
+                        <span class="delete-icon" data-id="${photo.id}">✕</span>
+                    </div>
+                    <div class="photo-desc">${photo.desc}</div>
+                </div>
+            `;
+            card.querySelector('img').addEventListener('click', () => {
+                document.getElementById('lightboxImg').src = photo.url;
+                document.getElementById('lightbox').classList.add('active');
+            });
+            card.querySelector('.delete-icon').addEventListener('click', (e) => {
+                e.stopPropagation();
+                deletePhoto(photo.id);
+            });
+            gallery.appendChild(card);
+        });
+    }
+
+    async function uploadPhotos(files) {
+        const formData = new FormData();
+        for (let file of files) {
+            if (file.type.startsWith('image/')) {
+                formData.append('photos', file);
+            }
+        }
+        
+        try {
+            const res = await fetch('/api/upload', { method: 'POST', body: formData });
+            const data = await res.json();
+            if (data.success) {
+                photos = [...data.photos, ...photos];
+                renderGallery();
+            } else {
+                alert('上傳失敗');
+            }
+        } catch (err) {
+            alert('上傳失敗: ' + err.message);
+        }
+    }
+
+    async function deletePhoto(id) {
+        if (!confirm('確定刪除這張照片嗎？')) return;
+        try {
+            const res = await fetch(`/api/photos/${id}`, { method: 'DELETE' });
+            const data = await res.json();
+            if (data.success) {
+                photos = photos.filter(p => p.id !== id);
+                renderGallery();
+            }
+        } catch (err) {
+            alert('刪除失敗');
+        }
+    }
+
+    const clearBtn = document.getElementById('clearBtn');
+    const passwordModal = document.getElementById('passwordModal');
+    const passwordInput = document.getElementById('passwordInput');
+    const modalError = document.getElementById('modalError');
+    const confirmClearBtn = document.getElementById('confirmClearBtn');
+    const cancelBtn = document.getElementById('cancelBtn');
+
+    clearBtn.onclick = () => {
+        if (photos.length === 0) { alert('沒有照片可以清空'); return; }
+        passwordInput.value = '';
+        modalError.innerText = '';
+        passwordModal.classList.add('active');
+    };
+
+    confirmClearBtn.onclick = async () => {
+        const password = passwordInput.value;
+        try {
+            const res = await fetch('/api/photos', { 
+                method: 'DELETE', 
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ password })
+            });
+            const data = await res.json();
+            if (data.success) {
+                photos = [];
+                renderGallery();
+                passwordModal.classList.remove('active');
+            } else {
+                modalError.innerText = '❌ 密碼錯誤';
+            }
+        } catch (err) {
+            modalError.innerText = '❌ 請求失敗';
+        }
+    };
+
+    cancelBtn.onclick = () => passwordModal.classList.remove('active');
+    
+    const fileInput = document.getElementById('fileInput');
+    fileInput.onchange = (e) => {
+        if (e.target.files.length) uploadPhotos(Array.from(e.target.files));
+        fileInput.value = '';
+    };
+
+    function closeLightbox() {
+        document.getElementById('lightbox').classList.remove('active');
+    }
+
+    if (sessionStorage.getItem('phoneEntered') === 'true') {
+        loadPhotos();
+    }
+</script>
+</body>
+</html>
