@@ -10,9 +10,9 @@ const PORT = process.env.PORT || 3000;
 // ========== Cloudinary 設定 ==========
 // 請將這三個值換成你自己的！
 cloudinary.config({
-    cloud_name: '你的Cloud名稱',     // 例如: 'dxm8nzxtr'
-    api_key: '你的API Key',          // 例如: '123456789012345'
-    api_secret: '你的API Secret'     // 例如: 'abc123def456ghi789'
+    cloud_name: 'difjrdigs',     // 例如: 'dxm8nzxtr'
+    api_key: '235722732873395',          // 例如: '123456789012345'
+    api_secret: 'BRY7vZ2cCV66us-WWmKLHK3cDoc'     // 例如: 'abc123def456ghi789'
 });
 
 // ========== 使用記憶體儲存（直接上傳到 Cloudinary）==========
