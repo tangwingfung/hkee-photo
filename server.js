@@ -6,16 +6,23 @@ const fs = require('fs');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Render 可以使用一般目錄
-const uploadDir = './uploads';
-const logDir = './logs';
+// ✅ 使用 /tmp 目錄（Render 允許寫入）
+const uploadDir = '/tmp/uploads';
+const logDir = '/tmp/logs';
 
-// 確保目錄存在
-if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
-if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
-
-console.log('✅ uploads 目錄:', uploadDir);
-console.log('✅ logs 目錄:', logDir);
+// 建立目錄（使用 recursive 選項避免錯誤）
+try {
+    if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+        console.log('✅ 建立 uploads 目錄:', uploadDir);
+    }
+    if (!fs.existsSync(logDir)) {
+        fs.mkdirSync(logDir, { recursive: true });
+        console.log('✅ 建立 logs 目錄:', logDir);
+    }
+} catch (err) {
+    console.log('⚠️ 目錄可能已存在:', err.message);
+}
 
 // 日誌功能
 const getLogFilePath = () => {
@@ -27,13 +34,19 @@ function logPhoneNumber(phone, ip, userAgent) {
     const logFile = getLogFilePath();
     const timestamp = new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' });
     const logEntry = `[${timestamp}] 電話: ${phone} | IP: ${ip} | 裝置: ${userAgent}\n`;
-    fs.appendFileSync(logFile, logEntry);
-    console.log('📝 已記錄電話:', phone);
+    try {
+        fs.appendFileSync(logFile, logEntry);
+        console.log('📝 已記錄電話:', phone);
+    } catch (err) {
+        console.error('寫入日誌失敗:', err);
+    }
 }
 
 // 照片儲存設定
 const storage = multer.diskStorage({
-    destination: (req, file, cb) => cb(null, uploadDir),
+    destination: (req, file, cb) => {
+        cb(null, uploadDir);
+    },
     filename: (req, file, cb) => {
         const uniqueName = Date.now() + '-' + Math.round(Math.random() * 10000) + path.extname(file.originalname);
         cb(null, uniqueName);
@@ -55,27 +68,31 @@ app.use('/uploads', express.static(uploadDir));
 let photos = [];
 
 // 載入已存在的照片
-if (fs.existsSync(uploadDir)) {
-    const files = fs.readdirSync(uploadDir);
-    for (const file of files) {
-        const ext = path.extname(file).toLowerCase();
-        if (['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(ext)) {
-            photos.push({
-                id: Date.now() + Math.random() * files.indexOf(file),
-                filename: file,
-                title: file.replace(/\.[^/.]+$/, '').substring(0, 20),
-                desc: '現有照片',
-                url: `/uploads/${file}`,
-                uploadDate: new Date()
-            });
+try {
+    if (fs.existsSync(uploadDir)) {
+        const files = fs.readdirSync(uploadDir);
+        for (const file of files) {
+            const ext = path.extname(file).toLowerCase();
+            if (['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(ext)) {
+                photos.push({
+                    id: Date.now() + Math.random() * files.indexOf(file),
+                    filename: file,
+                    title: file.replace(/\.[^/.]+$/, '').substring(0, 20),
+                    desc: '現有照片',
+                    url: `/uploads/${file}`,
+                    uploadDate: new Date()
+                });
+            }
         }
+        console.log(`📸 載入 ${photos.length} 張現有照片`);
     }
-    console.log(`📸 載入 ${photos.length} 張現有照片`);
+} catch (err) {
+    console.log('載入照片時發生錯誤:', err.message);
 }
 
 // ========== 測試路由 ==========
 app.get('/api/test', (req, res) => {
-    res.json({ success: true, message: 'Render 伺服器正常運作！' });
+    res.json({ success: true, message: 'Render 伺服器正常運作！', time: new Date().toLocaleString() });
 });
 
 // ========== API 路由 ==========
@@ -140,8 +157,12 @@ app.delete('/api/photos/:id', (req, res) => {
     // 刪除實體檔案
     const photo = photos[photoIndex];
     const filePath = path.join(uploadDir, photo.filename);
-    if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
+    try {
+        if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+        }
+    } catch (err) {
+        console.log('刪除檔案失敗:', err.message);
     }
     
     photos.splice(photoIndex, 1);
@@ -158,8 +179,12 @@ app.delete('/api/photos', (req, res) => {
     // 刪除所有實體檔案
     for (const photo of photos) {
         const filePath = path.join(uploadDir, photo.filename);
-        if (fs.existsSync(filePath)) {
-            fs.unlinkSync(filePath);
+        try {
+            if (fs.existsSync(filePath)) {
+                fs.unlinkSync(filePath);
+            }
+        } catch (err) {
+            console.log('刪除檔案失敗:', err.message);
         }
     }
     
@@ -172,6 +197,7 @@ app.delete('/api/photos', (req, res) => {
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`✅ Render 伺服器啟動成功！`);
     console.log(`🌐 端口: ${PORT}`);
-    console.log(`📁 照片儲存: ${path.resolve(uploadDir)}`);
-    console.log(`📝 日誌儲存: ${path.resolve(logDir)}`);
+    console.log(`📁 照片儲存: ${uploadDir}`);
+    console.log(`📝 日誌儲存: ${logDir}`);
+    console.log(`🔒 清空密碼: 1234`);
 });
