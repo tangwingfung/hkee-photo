@@ -162,6 +162,10 @@ app.delete('/api/photos', (req, res) => {
     res.json({ success: true });
 });
 
+// 測試路由
+app.get('/api/test', (req, res) => {
+    res.json({ success: true, message: '伺服器正常運作' });
+});
 
 // 只在本地開發時監聽埠號
 if (process.env.NODE_ENV !== 'production') {
